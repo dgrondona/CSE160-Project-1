@@ -1,3 +1,5 @@
+#include "../../includes/packet.h"
+
 configuration NeighborDiscoveryC{
    provides interface NeighborDiscovery;
 }
