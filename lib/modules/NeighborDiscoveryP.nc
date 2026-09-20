@@ -1,10 +1,11 @@
 #include "../../includes/packet.h"
 
-generic module NeighborDiscoveryP(){
+module NeighborDiscoveryP{
    provides interface NeighborDiscovery;
 
    uses interface Timer<TMilli> as discoveryTimer;
    uses interface Random;
+   uses interface SimpleSend;
 }
 
 implementation{
