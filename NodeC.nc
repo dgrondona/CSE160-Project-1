@@ -28,6 +28,9 @@ implementation {
     components new SimpleSendC(AM_PACK);
     Node.Sender -> SimpleSendC;
 
+    components NeighborDiscoveryC;
+    Node.NeighborDiscovery -> NeighborDiscoveryC;
+
     components CommandHandlerC;
     Node.CommandHandler -> CommandHandlerC;
 }
