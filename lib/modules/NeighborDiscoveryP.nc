@@ -5,7 +5,7 @@ module NeighborDiscoveryP{
 
    uses interface Timer<TMilli> as discoveryTimer;
    uses interface Random;
-   uses interface SimpleSend as sender;
+   uses interface SimpleSend as Sender;
 }
 
 implementation{
@@ -17,7 +17,7 @@ implementation{
         dbg(NEIGHBOR_CHANNEL, "printNeighbors called!\n");
     }
 
-    event void descoveryTimer.fired(){
+    event void discoveryTimer.fired(){
         dbg(NEIGHBOR_CHANNEL, "timer fired!\n");
     }
 }
