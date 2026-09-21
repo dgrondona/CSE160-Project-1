@@ -7,6 +7,8 @@ module FloodingP{
 }
 
 implementation{
+    pack sendPackage;
+
     enum {
         SEEN_SIZE = 50
     };
@@ -36,6 +38,15 @@ implementation{
 
         seenIndex = (seenIndex + 1) % SEEN_SIZE;
     }
+
+    void makePack(pack *Package, uint16_t src, uint16_t dest, uint16_t TTL, uint16_t protocol, uint16_t seq, uint8_t* payload, uint8_t length){
+      Package->src = src;
+      Package->dest = dest;
+      Package->TTL = TTL;
+      Package->seq = seq;
+      Package->protocol = protocol;
+      memcpy(Package->payload, payload, length);
+   }
 
     command error_t Flooding.flood(uint16_t destination, uint8_t *payload){
         dbg(FLOODING_CHANNEL, "flood called: %d\n", destination);
