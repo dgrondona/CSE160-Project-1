@@ -49,6 +49,9 @@ implementation{
    }
 
     command error_t Flooding.flood(uint16_t destination, uint8_t *payload){
+        error_t result;
+        makePack(&sendPackage, TOS_NODE_ID, destination, MAX_TTL, PROTOCOL_PING, mySeq, payload, PACKET_MAX_PAYLOAD_SIZE);
+
         dbg(FLOODING_CHANNEL, "flood called: %d\n", destination);
         return SUCCESS;
     }
