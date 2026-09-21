@@ -21,6 +21,8 @@ module Node{
 
    uses interface SimpleSend as Sender;
 
+   uses interface NeighborDiscovery;
+
    uses interface CommandHandler;
 }
 
@@ -39,6 +41,7 @@ implementation{
    event void AMControl.startDone(error_t err){
       if(err == SUCCESS){
          dbg(GENERAL_CHANNEL, "Radio On\n");
+         call NeighborDiscovery.startDiscovery();
       }else{
          //Retry until successful
          call AMControl.start();
@@ -65,7 +68,9 @@ implementation{
       call Sender.send(sendPackage, destination);
    }
 
-   event void CommandHandler.printNeighbors(){}
+   event void CommandHandler.printNeighbors(){
+      call NeighborDiscovery.printNeighbors();
+   }
 
    event void CommandHandler.printRouteTable(){}
 
