@@ -20,6 +20,16 @@ implementation{
     uint16_t seenIndex = 0;
     uint16_t mySeq = 1;
 
+    bool seenPacket(uint16_t src, uint16_t seq) {
+        int i;
+        for (i = 0; i < SEEN_SIZE; i++) {
+            if (seenList[i].src == src && seenList[i].seq == seq) {
+                return TRUE;
+            }
+        }
+        return FALSE;
+    }
+
     command error_t Flooding.flood(uint16_t destination, uint8_t *payload){
         dbg(FLOODING_CHANNEL, "flood called: %d\n", destination);
         return SUCCESS;
