@@ -30,6 +30,13 @@ implementation{
         return FALSE;
     }
 
+    void recordPacket (uint16_t src, uint16_t seq) {
+        seenList[seenIndex].src = src;
+        seenList[seenIndex].seq = seq;
+
+        seenIndex = (seenIndex + 1) % SEEN_SIZE;
+    }
+
     command error_t Flooding.flood(uint16_t destination, uint8_t *payload){
         dbg(FLOODING_CHANNEL, "flood called: %d\n", destination);
         return SUCCESS;
