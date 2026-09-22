@@ -50,10 +50,16 @@ implementation{
 
     command error_t Flooding.flood(uint16_t destination, uint8_t *payload){
         error_t result;
+
+        dbg(FLOODING_CHANNEL, "flood called. dest: %d, seq: %d\n", destination, mySeq);
+        
         makePack(&sendPackage, TOS_NODE_ID, destination, MAX_TTL, PROTOCOL_PING, mySeq, payload, PACKET_MAX_PAYLOAD_SIZE);
 
-        dbg(FLOODING_CHANNEL, "flood called: %d\n", destination);
-        return SUCCESS;
+        recordPacket(TOS_NODE_ID, mySeq);
+        mySeq++;
+
+        result = call Sender.send(sendPackage, AM_BROADCAST_ADDR);
+        return result;
     }
 
     command error_t Flooding.handlePacket(pack msg){
