@@ -48,25 +48,22 @@ implementation{
       memcpy(Package->payload, payload, length);
     }
    
-    void sendFlood(uint16_t destination, uint16_t protocol, uint8_t *payload) {
+    error_t sendFlood(uint16_t destination, uint16_t protocol, uint8_t *payload) {
         makePack(&sendPackage, TOS_NODE_ID, destination, MAX_TTL, protocol, mySeq, payload, PACKET_MAX_PAYLOAD_SIZE);
 
         recordPacket(TOS_NODE_ID, mySeq);
         mySeq++;
 
-        call Sender.send(sendPackage, AM_BROADCAST_ADDR);
+        return call Sender.send(sendPackage, AM_BROADCAST_ADDR);
     }
 
     command error_t Flooding.flood(uint16_t destination, uint8_t *payload){
         dbg(FLOODING_CHANNEL, "flood called. dest: %d, seq: %d\n", destination, mySeq);
 
-        sendFlood(destination, PROTOCOL_PING, payload);
-        return SUCCESS;
+        return sendFlood(destination, PROTOCOL_PING, payload);
     }
 
     command error_t Flooding.handlePacket(pack msg){
-        error_t result;
-
         dbg(FLOODING_CHANNEL, "recieved src: %d, dest: %d, seq: %d, TTL: %d\n", msg.src, msg.dest, msg.seq, msg.TTL);
 
         if (seenPacket(msg.src, msg.seq)) {
@@ -80,7 +77,9 @@ implementation{
             dbg(FLOODING_CHANNEL, "packet arrived! src: %d, dest: %d, seq: %d, TTL: %d\n", msg.src, msg.dest, msg.seq, msg.TTL);
 
             if (msg.protocol == PROTOCOL_PING) {
-                sendFlood(msg.src, PROTOCOL_PINGREPLY, "reply");
+                sendFlood(msg.src, PROTOCOL_PINGREPLY, msg.payload);
+            } else if (msg.protocol == PROTOCOL_PINGREPLY) {
+                dbg(FLOODING_CHANNEL, "ping reply recieved! src: %d, dest: %d, seq: %d, TTL: %d\n", msg.src, msg.dest, msg.seq, msg.TTL);
             }
 
             return SUCCESS;
@@ -93,7 +92,6 @@ implementation{
             return SUCCESS;
         }
 
-        result = call Sender.send(msg, AM_BROADCAST_ADDR);
-        return result;
+        return call Sender.send(msg, AM_BROADCAST_ADDR);
     }
 }
