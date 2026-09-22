@@ -30,6 +30,9 @@ def main():
     s.ping(1, 10, "Hi!");
     s.runTime(1);
 
+    s.ping(1, 19, "TTL Test")
+    s.runTime(1)
+
     s.neighborDMP(1)
     s.runTime(5)
 
