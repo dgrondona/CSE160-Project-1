@@ -63,6 +63,8 @@ implementation{
     }
 
     command error_t Flooding.handlePacket(pack msg){
+        error_t result;
+
         dbg(FLOODING_CHANNEL, "recieved src: %d, dest: %d, seq: %d, TTL: %d\n", msg.src, msg.dest, msg.seq, msg.TTL);
 
         if (seenPacket(msg.src, msg.seq)) {
@@ -77,6 +79,14 @@ implementation{
             return SUCCESS;
         }
 
-        return SUCCESS;
+        msg.TTL -= 1;
+
+        if (msg.TTL == 0) {
+            dbg(FLOODING_CHANNEL, "packet expired! src: %d, dest: %d, seq: %d, TTL: %d\n", msg.src, msg.dest, msg.seq, msg.TTL);
+            return SUCCESS;
+        }
+
+        result = call Sender.send(msg, AM_BROADCAST_ADDR);
+        return result;
     }
 }
