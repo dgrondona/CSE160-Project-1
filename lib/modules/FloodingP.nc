@@ -52,7 +52,7 @@ implementation{
         error_t result;
 
         dbg(FLOODING_CHANNEL, "flood called. dest: %d, seq: %d\n", destination, mySeq);
-        
+
         makePack(&sendPackage, TOS_NODE_ID, destination, MAX_TTL, PROTOCOL_PING, mySeq, payload, PACKET_MAX_PAYLOAD_SIZE);
 
         recordPacket(TOS_NODE_ID, mySeq);
@@ -63,7 +63,20 @@ implementation{
     }
 
     command error_t Flooding.handlePacket(pack msg){
-        dbg(FLOODING_CHANNEL, "handlePacket called!\n");
+        dbg(FLOODING_CHANNEL, "recieved src: %d, dest: %d, seq: %d, TTL: %d\n", msg.src, msg.dest, msg.seq, msg.TTL);
+
+        if (seenPacket(msg.src, msg.seq)) {
+            dbg(FLOODING_CHANNEL, "duplicate packet dropped! src: %d, dest: %d, seq: %d, TTL: %d\n", msg.src, msg.dest, msg.seq, msg.TTL);
+            return SUCCESS;
+        }
+
+        recordPacket(msg.src, msg.seq);
+
+        if (msg.dest == TOS_NODE_ID) {
+            dbg(FLOODING_CHANNEL, "packet arrived! src: %d, dest: %d, seq: %d, TTL: %d\n", msg.src, msg.dest, msg.seq, msg.TTL);
+            return SUCCESS;
+        }
+
         return SUCCESS;
     }
 }
