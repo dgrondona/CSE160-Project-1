@@ -23,18 +23,14 @@ def main():
     s.addChannel(s.NEIGHBOR_CHANNEL)
 
     # After sending a ping, simulate a little to prevent collision.
-    s.runTime(1);
-    s.ping(2, 3, "Hello, World");
-    s.runTime(1);
-
-    s.ping(1, 10, "Hi!");
-    s.runTime(1);
-
-    s.ping(1, 19, "TTL Test")
-    s.runTime(1)
-
-    s.neighborDMP(1)
-    s.runTime(5)
+    s.runTime(20)
+    s.neighborDMP(4)
+    s.runTime(2)
+    s.moteOff(5)
+    s.runTime(20)
+    s.neighborDMP(4)
+    s.neighborDMP(6)
+    s.runTime(2)
 
 if __name__ == '__main__':
     main()

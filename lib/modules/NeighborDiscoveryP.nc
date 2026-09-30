@@ -43,15 +43,17 @@ implementation{
     }
 
     command void NeighborDiscovery.printNeighbors(){
-        dbg(NEIGHBOR_CHANNEL, "printNeighbors called!\n");
+        int i;
+        dbg(NEIGHBOR_CHANNEL, "printNeighbors for %d\n", TOS_NODE_ID);
+
+        for (i = 0; i < neighborCount; i++) {
+            dbg(NEIGHBOR_CHANNEL, "%d\n", neighborList[i].addr);
+        }
     }
 
     command void NeighborDiscovery.handlePacket(pack msg){
 
-        dbg(NEIGHBOR_CHANNEL, "handlePacket called! src: %d, protocol: %d\n", msg.src, msg.protocol);
-
         if (msg.protocol == PROTOCOL_PINGREPLY) {
-            // record neighbor
 
             int i;
             for (i = 0; i < neighborCount; i++) {
@@ -78,8 +80,20 @@ implementation{
     }
 
     event void discoveryTimer.fired(){
+        int i;
         uint8_t payload[PACKET_MAX_PAYLOAD_SIZE];
         memset(payload, 0, PACKET_MAX_PAYLOAD_SIZE);
+
+        for (i = neighborCount - 1; i >= 0; i--) {
+            neighborList[i].missedCount++;
+
+            if (neighborList[i].missedCount > MAX_MISSED) {
+                dbg(NEIGHBOR_CHANNEL, "neighbor %d dropped\n", neighborList[i].addr);
+
+                neighborList[i] = neighborList[neighborCount - 1];
+                neighborCount--;
+            }
+        }
 
         makePack(&sendPackage, TOS_NODE_ID, AM_BROADCAST_ADDR, 1, PROTOCOL_PING, 0, payload, PACKET_MAX_PAYLOAD_SIZE);
         call Sender.send(sendPackage, AM_BROADCAST_ADDR);
