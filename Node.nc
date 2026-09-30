@@ -19,8 +19,6 @@ module Node{
    uses interface SplitControl as AMControl;
    uses interface Receive;
 
-   uses interface SimpleSend as Sender;
-
    uses interface NeighborDiscovery;
    uses interface Flooding;
 
@@ -28,10 +26,6 @@ module Node{
 }
 
 implementation{
-   pack sendPackage;
-
-   // Prototypes
-   void makePack(pack *Package, uint16_t src, uint16_t dest, uint16_t TTL, uint16_t Protocol, uint16_t seq, uint8_t *payload, uint8_t length);
 
    event void Boot.booted(){
       call AMControl.start();
@@ -52,10 +46,8 @@ implementation{
    event void AMControl.stopDone(error_t err){}
 
    event message_t* Receive.receive(message_t* msg, void* payload, uint8_t len){
-      dbg(GENERAL_CHANNEL, "Packet Received\n");
       if(len==sizeof(pack)){
          pack* myMsg=(pack*) payload;
-         dbg(GENERAL_CHANNEL, "Package Payload: %s\n", myMsg->payload);
 
          if (myMsg->dest == AM_BROADCAST_ADDR) {
             call NeighborDiscovery.handlePacket(*myMsg);

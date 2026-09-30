@@ -25,9 +25,6 @@ def main():
     s.runTime(20) # let discovery run a few rounds
     s.ping(1, 9, "Cycle test")
     s.runTime(10) # let the flood and reply finish
-    s.neighborDMP(3); s.runTime(1)
-    s.neighborDMP(4); s.runTime(1)
-    s.neighborDMP(9); s.runTime(1)
 
     # After sending a ping, simulate a little to prevent collision.
     s.neighborDMP(3); s.runTime(1)

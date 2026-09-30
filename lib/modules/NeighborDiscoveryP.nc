@@ -39,7 +39,7 @@ implementation{
         uint16_t jitter = call Random.rand16() % PERIOD_JITTER;
 
         call discoveryTimer.startPeriodic(DISCOVERY_PERIOD + jitter);
-        dbg(NEIGHBOR_CHANNEL, "startDiscovery called! Jitter: %d\n", jitter);
+        dbg(NEIGHBOR_CHANNEL, "startDiscovery called! Jitter: %d, Period: \n", jitter, DISCOVERY_PERIOD + jitter);
     }
 
     command void NeighborDiscovery.printNeighbors(){
@@ -98,6 +98,6 @@ implementation{
         makePack(&sendPackage, TOS_NODE_ID, AM_BROADCAST_ADDR, 1, PROTOCOL_PING, 0, payload, PACKET_MAX_PAYLOAD_SIZE);
         call Sender.send(sendPackage, AM_BROADCAST_ADDR);
 
-        dbg(NEIGHBOR_CHANNEL, "timer fired!\n");
+        dbg(NEIGHBOR_CHANNEL, "sending neighbor probe!\n");
     }
 }

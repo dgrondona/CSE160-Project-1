@@ -72,7 +72,7 @@ implementation{
     }
 
     command error_t Flooding.handlePacket(pack msg){
-        dbg(FLOODING_CHANNEL, "recieved src: %d, dest: %d, seq: %d, TTL: %d\n", msg.src, msg.dest, msg.seq, msg.TTL);
+        dbg(FLOODING_CHANNEL, "received src: %d, dest: %d, seq: %d, TTL: %d\n", msg.src, msg.dest, msg.seq, msg.TTL);
 
         // If we've already seen a packet, drop it.
         if (seenPacket(msg.src, msg.seq)) {
@@ -91,7 +91,7 @@ implementation{
             if (msg.protocol == PROTOCOL_PING) {
                 sendFlood(msg.src, PROTOCOL_PINGREPLY, msg.payload);
             } else if (msg.protocol == PROTOCOL_PINGREPLY) {
-                dbg(FLOODING_CHANNEL, "ping reply recieved! src: %d, dest: %d, seq: %d, TTL: %d\n", msg.src, msg.dest, msg.seq, msg.TTL);
+                dbg(FLOODING_CHANNEL, "ping reply received! src: %d, dest: %d, seq: %d, TTL: %d\n", msg.src, msg.dest, msg.seq, msg.TTL);
             }
 
             return SUCCESS;
@@ -102,7 +102,7 @@ implementation{
 
         // If the TTL is now 0, the packet has reached the end of its life and we drop it.
         if (msg.TTL == 0) {
-            dbg(FLOODING_CHANNEL, "packet expired! src: %d, dest: %d, seq: %d, TTL: %d\n", msg.src, msg.dest, msg.seq, msg.TTL);
+            dbg(FLOODING_CHANNEL, "TTL exhausted! src: %d, dest: %d, seq: %d, TTL: %d\n", msg.src, msg.dest, msg.seq, msg.TTL);
             return SUCCESS;
         }
 
