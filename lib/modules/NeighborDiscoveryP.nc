@@ -47,7 +47,34 @@ implementation{
     }
 
     command void NeighborDiscovery.handlePacket(pack msg){
+
         dbg(NEIGHBOR_CHANNEL, "handlePacket called! src: %d, protocol: %d\n", msg.src, msg.protocol);
+
+        if (msg.protocol == PROTOCOL_PINGREPLY) {
+            // record neighbor
+
+            int i;
+            for (i = 0; i < neighborCount; i++) {
+                if (neighborList[i].addr == msg.src) {
+                    neighborList[i].missedCount = 0;
+                    return;
+                }
+            }
+
+            if (neighborCount < MAX_NEIGHBORS) {
+                neighborList[neighborCount].addr = msg.src;
+                neighborList[neighborCount].missedCount = 0;
+                neighborCount++;
+
+                dbg(NEIGHBOR_CHANNEL, "new neighbor: %d\n", msg.src);
+            }
+        } else {
+            uint8_t payload[PACKET_MAX_PAYLOAD_SIZE];
+            memset(payload, 0, PACKET_MAX_PAYLOAD_SIZE);
+
+            makePack(&sendPackage, TOS_NODE_ID, AM_BROADCAST_ADDR, 1, PROTOCOL_PINGREPLY, 0, payload, PACKET_MAX_PAYLOAD_SIZE);
+            call Sender.send(sendPackage, AM_BROADCAST_ADDR);            
+        }
     }
 
     event void discoveryTimer.fired(){
