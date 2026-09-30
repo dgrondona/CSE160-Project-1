@@ -21,6 +21,10 @@ implementation{
         dbg(NEIGHBOR_CHANNEL, "printNeighbors called!\n");
     }
 
+    command void NeighborDiscovery.handlePacket(pack msg){
+        dbg(NEIGHBOR_CHANNEL, "handlePacker called! src: %d, protocol: %d\n", msg.src, msg.protocol);
+    }
+
     event void discoveryTimer.fired(){
         dbg(NEIGHBOR_CHANNEL, "timer fired!\n");
     }
