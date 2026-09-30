@@ -13,7 +13,9 @@ implementation{
 
     enum {
         MAX_NEIGHBORS = 32,
-        MAX_MISSED = 4
+        MAX_MISSED = 3,
+        DISCOVERY_PERIOD = 3457,
+        PERIOD_JITTER = 607
     };
 
     typedef struct Neighbor {
@@ -34,7 +36,10 @@ implementation{
     }
 
     command void NeighborDiscovery.startDiscovery(){
-        dbg(NEIGHBOR_CHANNEL, "startDiscovery called!\n");
+        uint16_t jitter = call Random.rand16() % PERIOD_JITTER;
+
+        call discoveryTimer.startPeriodic(DISCOVERY_PERIOD + jitter);
+        dbg(NEIGHBOR_CHANNEL, "startDiscovery called! Jitter: %d\n", jitter);
     }
 
     command void NeighborDiscovery.printNeighbors(){
