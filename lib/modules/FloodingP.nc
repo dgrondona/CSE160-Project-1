@@ -44,7 +44,7 @@ implementation{
         seenIndex = (seenIndex + 1) % SEEN_SIZE; // Loop indexer back to beginning to overwrite from the start of the array.
     }
 
-    // makePack taken from Node.ns
+    // makePack taken from Node.nc
     void makePack(pack *Package, uint16_t src, uint16_t dest, uint16_t TTL, uint16_t protocol, uint16_t seq, uint8_t* payload, uint8_t length){
       Package->src = src;
       Package->dest = dest;
@@ -106,6 +106,7 @@ implementation{
             return SUCCESS;
         }
 
+        dbg(FLOODING_CHANNEL, "forwarding src: %d, dest: %d, seq: %d, TTL: %d\n", msg.src, msg.dest, msg.seq, msg.TTL);
         return call Sender.send(msg, AM_BROADCAST_ADDR);
     }
 }

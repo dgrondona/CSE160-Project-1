@@ -29,6 +29,7 @@ def main():
     s.moteOff(5)
     s.runTime(20)
     s.neighborDMP(4)
+    s.runTime(1)
     s.neighborDMP(6)
     s.runTime(2)
 
