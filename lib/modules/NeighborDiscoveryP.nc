@@ -51,6 +51,12 @@ implementation{
     }
 
     event void discoveryTimer.fired(){
+        uint8_t payload[PACKET_MAX_PAYLOAD_SIZE];
+        memset(payload, 0, PACKET_MAX_PAYLOAD_SIZE);
+
+        makePack(&sendPackage, TOS_NODE_ID, AM_BROADCAST_ADDR, 1, PROTOCOL_PING, 0, payload, PACKET_MAX_PAYLOAD_SIZE);
+        call Sender.send(sendPackage, AM_BROADCAST_ADDR);
+
         dbg(NEIGHBOR_CHANNEL, "timer fired!\n");
     }
 }
