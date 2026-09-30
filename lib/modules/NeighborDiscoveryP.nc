@@ -39,7 +39,7 @@ implementation{
         uint16_t jitter = call Random.rand16() % PERIOD_JITTER;
 
         call discoveryTimer.startPeriodic(DISCOVERY_PERIOD + jitter);
-        dbg(NEIGHBOR_CHANNEL, "startDiscovery called! Jitter: %d, Period: \n", jitter, DISCOVERY_PERIOD + jitter);
+        dbg(NEIGHBOR_CHANNEL, "startDiscovery called! Jitter: %d, Period: %d\n", jitter, DISCOVERY_PERIOD + jitter);
     }
 
     command void NeighborDiscovery.printNeighbors(){
