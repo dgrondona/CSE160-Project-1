@@ -56,7 +56,13 @@ implementation{
       if(len==sizeof(pack)){
          pack* myMsg=(pack*) payload;
          dbg(GENERAL_CHANNEL, "Package Payload: %s\n", myMsg->payload);
-         call Flooding.handlePacket(*myMsg);
+
+         if (myMsg->dest == AM_BROADCAST_ADDR) {
+            call NeighborDiscovery.handlePacket(*myMsg);
+         } else {
+            call Flooding.handlePacket(*myMsg);
+         }
+
          return msg;
       }
       dbg(GENERAL_CHANNEL, "Unknown Packet Type %d\n", len);
