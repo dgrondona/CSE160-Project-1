@@ -3,22 +3,22 @@ This is where I'll put my notes for design decisions and such.
 
 ## Flooding
 
-### Duplicate detection
+### Duplicate detection key
 - **Decision:** Track seen packets as (src, seq) pairs.
-- **Why:** src says where the packet came from, seq says which packet from that node it is. This protects against packets being recieved out of order and packets from different nodes having the same seq.
+- **Why:** src says where the packet came from, seq says which packet
+  from that node it is.
 
-### Seen-table + Overflow
-- **Decision:** Fixed array of 50 entries, overwrites the beginning once reaching the end
-- **Why:** 50 seemed like a reasonable number. It isn't too big, and we most likely won't be overwriting entries that still have TTL. If > 50 packets are sent within the time it takes for a packet to expire, the packet may be sent a few extra times since a node thinks it's new. Since we track TTL, we won't have infinite loops.
+### Seen-table structure
+- **Decision:** Fixed array of 50 entries, circular — overwrites the
+  oldest after reaching the end.
+- **Why:** Seemed reasonable; adjustable.
 
-### Sequence numbers
+### Overflow behavior
+- **Decision:** Overwrite the oldest entry.
+- **Risk:** If >50 packets pass through within one packet's lifetime,
+  an entry could be evicted while still live.
+- **Why it's safe:** The worst that can happen is packet loops. In that case, we won't get infinite loops due to TTL.
+
+### Sequence numbers start at 1
 - **Decision:** mySeq initialized to 1, not 0.
-- **Why:** We initialize the array with all 0s. Initializing mySeq at 1 makes sure we aren't automatically rejecting packets with the empty, initialized array.
-
-### Forwarders modify only TTL
-- **Decision:** src and seq are never changed in transit.
-- **Why:** We keep an accurate log of what packets we've seen. Editing src and/or seq would cause problems with duplicate packets.
-
-### Check ordering in handlePacket
-- **Decision:**
-- **Why:** 
+- **Why:** When we initialize the array to 0, we would think we had already seen things of 0 seq.
