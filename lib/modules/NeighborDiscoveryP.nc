@@ -6,6 +6,7 @@ module NeighborDiscoveryP{
    uses interface Timer<TMilli> as discoveryTimer;
    uses interface Random;
    uses interface SimpleSend as Sender;
+   uses interface Receive;
 }
 
 implementation{
@@ -26,13 +27,42 @@ implementation{
     Neighbor neighborList[MAX_NEIGHBORS];
     uint16_t neighborCount = 0;
 
-    void makePack(pack *Package, uint16_t src, uint16_t dest, uint16_t TTL, uint16_t protocol, uint16_t seq, uint8_t* payload, uint8_t length){
-      Package->src = src;
-      Package->dest = dest;
-      Package->TTL = TTL;
-      Package->seq = seq;
-      Package->protocol = protocol;
-      memcpy(Package->payload, payload, length);
+    void handlePacket(pack msg){
+
+        if (msg.protocol == PROTOCOL_PINGREPLY) {
+
+            int i;
+
+            // Replies are unicast back to the prober, so only the node that sent the probe counts this reply.
+            if (msg.dest != TOS_NODE_ID) {
+                return;
+            }
+
+            for (i = 0; i < neighborCount; i++) {
+                if (neighborList[i].addr == msg.src) {
+                    neighborList[i].missedCount = 0;
+                    return;
+                }
+            }
+
+            if (neighborCount < MAX_NEIGHBORS) {
+                neighborList[neighborCount].addr = msg.src;
+                neighborList[neighborCount].missedCount = 0;
+                neighborCount++;
+
+                dbg(NEIGHBOR_CHANNEL, "new neighbor: %d\n", msg.src);
+                signal NeighborDiscovery.neighborAdded(msg.src);
+            } else {
+                dbg(NEIGHBOR_CHANNEL, "neighbor list full! dropped: %d\n", msg.src);
+            }
+        } else {
+            uint8_t payload[PACKET_MAX_PAYLOAD_SIZE];
+            memset(payload, 0, PACKET_MAX_PAYLOAD_SIZE);
+
+            // Reply straight to the prober. It only hears this if the link works both ways.
+            makePack(&sendPackage, TOS_NODE_ID, msg.src, 1, PROTOCOL_PINGREPLY, 0, payload, PACKET_MAX_PAYLOAD_SIZE);
+            call Sender.send(sendPackage, msg.src);
+        }
     }
 
     command void NeighborDiscovery.startDiscovery(){
@@ -51,32 +81,23 @@ implementation{
         }
     }
 
-    command void NeighborDiscovery.handlePacket(pack msg){
-
-        if (msg.protocol == PROTOCOL_PINGREPLY) {
-
-            int i;
-            for (i = 0; i < neighborCount; i++) {
-                if (neighborList[i].addr == msg.src) {
-                    neighborList[i].missedCount = 0;
-                    return;
-                }
+    command bool NeighborDiscovery.isNeighbor(uint16_t id){
+        int i;
+        for (i = 0; i < neighborCount; i++) {
+            if (neighborList[i].addr == id) {
+                return TRUE;
             }
-
-            if (neighborCount < MAX_NEIGHBORS) {
-                neighborList[neighborCount].addr = msg.src;
-                neighborList[neighborCount].missedCount = 0;
-                neighborCount++;
-
-                dbg(NEIGHBOR_CHANNEL, "new neighbor: %d\n", msg.src);
-            }
-        } else {
-            uint8_t payload[PACKET_MAX_PAYLOAD_SIZE];
-            memset(payload, 0, PACKET_MAX_PAYLOAD_SIZE);
-
-            makePack(&sendPackage, TOS_NODE_ID, AM_BROADCAST_ADDR, 1, PROTOCOL_PINGREPLY, 0, payload, PACKET_MAX_PAYLOAD_SIZE);
-            call Sender.send(sendPackage, AM_BROADCAST_ADDR);            
         }
+        return FALSE;
+    }
+
+    // Copy up to max neighbor addresses into buf and return how many were copied.
+    command uint8_t NeighborDiscovery.getNeighbors(uint16_t* buf, uint8_t max){
+        int i;
+        for (i = 0; i < neighborCount && i < max; i++) {
+            buf[i] = neighborList[i].addr;
+        }
+        return i;
     }
 
     event void discoveryTimer.fired(){
@@ -88,10 +109,14 @@ implementation{
             neighborList[i].missedCount++;
 
             if (neighborList[i].missedCount > MAX_MISSED) {
-                dbg(NEIGHBOR_CHANNEL, "neighbor %d dropped\n", neighborList[i].addr);
+                uint16_t dropped = neighborList[i].addr;
+                dbg(NEIGHBOR_CHANNEL, "neighbor %d dropped\n", dropped);
 
                 neighborList[i] = neighborList[neighborCount - 1];
                 neighborCount--;
+
+                // Signal after the list is compacted so listeners never see a half updated list.
+                signal NeighborDiscovery.neighborRemoved(dropped);
             }
         }
 
@@ -99,5 +124,16 @@ implementation{
         call Sender.send(sendPackage, AM_BROADCAST_ADDR);
 
         dbg(NEIGHBOR_CHANNEL, "sending neighbor probe!\n");
+    }
+
+    // Neighbor discovery packets come in on their own AM type.
+    event message_t* Receive.receive(message_t* msg, void* payload, uint8_t len){
+        if (len == sizeof(pack)) {
+            pack* myMsg = (pack*) payload;
+            handlePacket(*myMsg);
+            return msg;
+        }
+        dbg(NEIGHBOR_CHANNEL, "Unknown Packet Type %d\n", len);
+        return msg;
     }
 }
