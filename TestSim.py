@@ -13,6 +13,7 @@ class TestSim:
     CMD_PING = 0
     CMD_NEIGHBOR_DUMP = 1
     CMD_ROUTE_DUMP=3
+    CMD_PING_TTL=7
 
     # CHANNELS - see includes/channels.h
     COMMAND_CHANNEL="command";
@@ -24,6 +25,7 @@ class TestSim:
 
     # Project 2
     ROUTING_CHANNEL="routing";
+    DV_CHANNEL="dv";
 
     # Project 3
     TRANSPORT_CHANNEL="transport";
@@ -98,6 +100,16 @@ class TestSim:
     def moteOn(self, nodeID):
         self.t.getNode(nodeID).turnOn();
 
+    # Remove both directions of a link, but keep both motes running.
+    def removeLink(self, a, b):
+        self.r.remove(a, b);
+        self.r.remove(b, a);
+
+    # Add both directions of a link.
+    def addLink(self, a, b, gain=-54.0):
+        self.r.add(a, b, gain);
+        self.r.add(b, a, gain);
+
     def run(self, ticks):
         for i in range(ticks):
             self.t.runNextEvent()
@@ -105,6 +117,17 @@ class TestSim:
     # Rough run time. tickPerSecond does not work.
     def runTime(self, amount):
         self.run(amount*1000)
+
+    # Run for an amount of simulated seconds. runTime counts events, not time.
+    def runSeconds(self, seconds):
+        end = self.t.time() + seconds*self.t.ticksPerSecond()
+        while self.t.time() < end:
+            if not self.t.runNextEvent():
+                break
+
+    # Print a marker with the current simulated time so test logs show when each step happened.
+    def mark(self, label):
+        print '=====', self.t.timeStr(), label, '=====';
 
     # Generic Command
     def sendCMD(self, ID, dest, payloadStr):
@@ -118,6 +141,10 @@ class TestSim:
 
     def ping(self, source, dest, msg):
         self.sendCMD(self.CMD_PING, source, "{0}{1}".format(chr(dest),msg));
+
+    # Same as ping, but the source sends it with the given TTL instead of MAX_TTL.
+    def pingTTL(self, source, dest, TTL, msg):
+        self.sendCMD(self.CMD_PING_TTL, source, "{0}{1}{2}".format(chr(dest),chr(TTL),msg));
 
     def neighborDMP(self, destination):
         self.sendCMD(self.CMD_NEIGHBOR_DUMP, destination, "neighbor command");
