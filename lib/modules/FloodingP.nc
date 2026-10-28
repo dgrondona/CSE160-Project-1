@@ -4,6 +4,7 @@ module FloodingP{
    provides interface Flooding;
 
    uses interface SimpleSend as Sender;
+   uses interface Receive;
 }
 
 implementation{
@@ -44,16 +45,6 @@ implementation{
         seenIndex = (seenIndex + 1) % SEEN_SIZE; // Loop indexer back to beginning to overwrite from the start of the array.
     }
 
-    // makePack taken from Node.nc
-    void makePack(pack *Package, uint16_t src, uint16_t dest, uint16_t TTL, uint16_t protocol, uint16_t seq, uint8_t* payload, uint8_t length){
-      Package->src = src;
-      Package->dest = dest;
-      Package->TTL = TTL;
-      Package->seq = seq;
-      Package->protocol = protocol;
-      memcpy(Package->payload, payload, length);
-    }
-   
     // Record packet, then send flood.
     error_t sendFlood(uint16_t destination, uint16_t protocol, uint8_t *payload) {
         makePack(&sendPackage, TOS_NODE_ID, destination, MAX_TTL, protocol, mySeq, payload, PACKET_MAX_PAYLOAD_SIZE);
@@ -71,7 +62,7 @@ implementation{
         return sendFlood(destination, PROTOCOL_PING, payload);
     }
 
-    command error_t Flooding.handlePacket(pack msg){
+    error_t handlePacket(pack msg){
         dbg(FLOODING_CHANNEL, "received src: %d, dest: %d, seq: %d, TTL: %d\n", msg.src, msg.dest, msg.seq, msg.TTL);
 
         // If we've already seen a packet, drop it.
@@ -86,14 +77,6 @@ implementation{
         // If the packet is for us.
         if (msg.dest == TOS_NODE_ID) {
             dbg(FLOODING_CHANNEL, "packet arrived! src: %d, dest: %d, seq: %d, TTL: %d\n", msg.src, msg.dest, msg.seq, msg.TTL);
-
-            // If the protocol is ping, send a reply, echoing the original message. If it is a reply, don't send a reply.
-            if (msg.protocol == PROTOCOL_PING) {
-                sendFlood(msg.src, PROTOCOL_PINGREPLY, msg.payload);
-            } else if (msg.protocol == PROTOCOL_PINGREPLY) {
-                dbg(FLOODING_CHANNEL, "ping reply received! src: %d, dest: %d, seq: %d, TTL: %d\n", msg.src, msg.dest, msg.seq, msg.TTL);
-            }
-
             return SUCCESS;
         }
 
@@ -108,5 +91,16 @@ implementation{
 
         dbg(FLOODING_CHANNEL, "forwarding src: %d, dest: %d, seq: %d, TTL: %d\n", msg.src, msg.dest, msg.seq, msg.TTL);
         return call Sender.send(msg, AM_BROADCAST_ADDR);
+    }
+
+    // Flooding packets come in on their own AM type, so nothing else lands here.
+    event message_t* Receive.receive(message_t* msg, void* payload, uint8_t len){
+        if (len == sizeof(pack)) {
+            pack* myMsg = (pack*) payload;
+            handlePacket(*myMsg);
+            return msg;
+        }
+        dbg(FLOODING_CHANNEL, "Unknown Packet Type %d\n", len);
+        return msg;
     }
 }
