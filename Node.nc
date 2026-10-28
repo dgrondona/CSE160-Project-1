@@ -17,10 +17,11 @@ module Node{
    uses interface Boot;
 
    uses interface SplitControl as AMControl;
-   uses interface Receive;
 
    uses interface NeighborDiscovery;
    uses interface Flooding;
+   uses interface DistanceVector;
+   uses interface IP;
 
    uses interface CommandHandler;
 }
@@ -37,6 +38,7 @@ implementation{
       if(err == SUCCESS){
          dbg(GENERAL_CHANNEL, "Radio On\n");
          call NeighborDiscovery.startDiscovery();
+         call DistanceVector.start();
       }else{
          //Retry until successful
          call AMControl.start();
@@ -45,33 +47,40 @@ implementation{
 
    event void AMControl.stopDone(error_t err){}
 
-   event message_t* Receive.receive(message_t* msg, void* payload, uint8_t len){
-      if(len==sizeof(pack)){
-         pack* myMsg=(pack*) payload;
+   // Ping sits on top of IP. Each module receives its own AM type, so Node doesn't receive packets itself.
+   event void IP.receive(pack msg){
+      if (msg.protocol == PROTOCOL_PING) {
+         dbg(GENERAL_CHANNEL, "ping received! src: %d, dest: %d, seq: %d, TTL: %d\n", msg.src, msg.dest, msg.seq, msg.TTL);
 
-         if (myMsg->dest == AM_BROADCAST_ADDR) {
-            call NeighborDiscovery.handlePacket(*myMsg);
-         } else {
-            call Flooding.handlePacket(*myMsg);
-         }
-
-         return msg;
+         // Reply with a routed packet, echoing the original message.
+         call IP.send(msg.src, PROTOCOL_PINGREPLY, MAX_TTL, (uint8_t*) msg.payload);
+      } else if (msg.protocol == PROTOCOL_PINGREPLY) {
+         dbg(GENERAL_CHANNEL, "ping reply received! src: %d, dest: %d, seq: %d, TTL: %d\n", msg.src, msg.dest, msg.seq, msg.TTL);
       }
-      dbg(GENERAL_CHANNEL, "Unknown Packet Type %d\n", len);
-      return msg;
    }
 
+   // DV is the one that needs these.
+   event void NeighborDiscovery.neighborAdded(uint16_t id){}
+
+   event void NeighborDiscovery.neighborRemoved(uint16_t id){}
 
    event void CommandHandler.ping(uint16_t destination, uint8_t *payload){
       dbg(GENERAL_CHANNEL, "PING EVENT \n");
-      call Flooding.flood(destination, payload);
+      call IP.send(destination, PROTOCOL_PING, MAX_TTL, payload);
+   }
+
+   event void CommandHandler.pingTTL(uint16_t destination, uint8_t TTL, uint8_t *payload){
+      dbg(GENERAL_CHANNEL, "PING EVENT TTL: %d\n", TTL);
+      call IP.send(destination, PROTOCOL_PING, TTL, payload);
    }
 
    event void CommandHandler.printNeighbors(){
       call NeighborDiscovery.printNeighbors();
    }
 
-   event void CommandHandler.printRouteTable(){}
+   event void CommandHandler.printRouteTable(){
+      call DistanceVector.printRouteTable();
+   }
 
    event void CommandHandler.printLinkState(){}
 

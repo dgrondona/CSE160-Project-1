@@ -53,6 +53,12 @@ implementation{
                 signal CommandHandler.ping(buff[0], &buff[1]);
                 break;
 
+            // Same as ping, but the second value is the TTL to send with.
+            case CMD_PING_TTL:
+                dbg(COMMAND_CHANNEL, "Command Type: Ping TTL\n");
+                signal CommandHandler.pingTTL(buff[0], buff[1], &buff[2]);
+                break;
+
             case CMD_NEIGHBOR_DUMP:
                 dbg(COMMAND_CHANNEL, "Command Type: Neighbor Dump\n");
                 signal CommandHandler.printNeighbors();
