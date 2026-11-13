@@ -86,3 +86,44 @@ def main():
 if __name__ == '__main__':
     main()
 ```
+
+# Project 3: Reliable Transport
+
+Design notes, the state table and the timer policy are in `Project3Notes.md`.
+
+## Build and run
+```
+docker run --rm -v "$PWD":/home/cse160 -w /home/cse160 ucmercedandeslab/tinyos_debian bash -lc 'make micaz sim && python transportTest.py basic'
+```
+
+## Header sizes
+28 byte payload = 8 byte IP header + 8 byte transport header + **12 data bytes** per segment.
+
+## Constants
+| Name | Value | Where |
+|---|---|---|
+| `TCP_MAX_DATA` | 12 | `includes/tcp.h` |
+| `SOCKET_BUFFER_SIZE` | 128 send, 128 receive per record | `includes/socket.h` |
+| `MAX_NUM_OF_SOCKETS` | 10 | `includes/socket.h` |
+| `SEND_WINDOW` | 12 (stop-and-wait for now) | `TransportP.nc` |
+| `RTO` | 3000 ms, fixed | `TransportP.nc` |
+| `MAX_RETRIES` | 6 | `TransportP.nc` |
+| `TIME_WAIT_PERIOD` | 21000 ms | `TransportP.nc` |
+| `TICK_PERIOD` | 250 ms | `TransportP.nc` |
+
+Sequence numbers are 16 bits with wraparound-safe compares, so any transfer size up to 65535 bytes works.
+
+## Test commands (TestSim.py)
+| Method | Sent to | Payload |
+|---|---|---|
+| `testServer(serverAddress, listenPort)` | serverAddress | port |
+| `testClient(clientAddress, serverAddress, srcPort, destPort, transferBytes)` | clientAddress | server, srcPort, destPort, bytes (2, big endian) |
+| `clientClose(clientAddress, serverAddress, srcPort, destPort)` | clientAddress | server, srcPort, destPort |
+
+`cmdTestServer`, `cmdTestClient` and `cmdClientClose` are aliases with the handout's names.
+
+Channels: `transport` for engine events, `Project3TGen` for app progress (accepted, consumed, results).
+
+## Tests
+- `transportTest.py basic`: `line.topo` (1-2-3-4), `no_noise.txt`. Server 4:20, client 1:10, 300 bytes, then close.
+  Observed: 25 segments, `server result! total: 300, mismatches: 0`, client `accepted: 300`, acked 300, both sides `close done! result: SUCCESS`, and the client releases after TIME_WAIT.

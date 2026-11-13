@@ -22,6 +22,7 @@ module Node{
    uses interface Flooding;
    uses interface DistanceVector;
    uses interface IP;
+   uses interface TransportTest;
 
    uses interface CommandHandler;
 }
@@ -86,9 +87,17 @@ implementation{
 
    event void CommandHandler.printDistanceVector(){}
 
-   event void CommandHandler.setTestServer(){}
+   event void CommandHandler.setTestServer(uint8_t port){
+      call TransportTest.startServer(port);
+   }
 
-   event void CommandHandler.setTestClient(){}
+   event void CommandHandler.setTestClient(uint16_t dest, uint8_t srcPort, uint8_t destPort, uint16_t transferBytes){
+      call TransportTest.startClient(dest, srcPort, destPort, transferBytes);
+   }
+
+   event void CommandHandler.clientClose(uint16_t dest, uint8_t srcPort, uint8_t destPort){
+      call TransportTest.closeClient(dest, srcPort, destPort);
+   }
 
    event void CommandHandler.setAppServer(){}
 

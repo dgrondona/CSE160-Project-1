@@ -1,4 +1,4 @@
-#include "../../packet.h"
+#include "../../includes/packet.h"
 #include "../../includes/socket.h"
 
 /**
@@ -144,4 +144,14 @@ interface Transport{
     *   to listen else FAIL.
     */
    command error_t listen(socket_t fd);
+
+   // Split phase, so nothing blocks the rest of the node.
+   // connectDone: client side, SUCCESS once ESTABLISHED, FAIL if the handshake ran out of retries.
+   event void connectDone(socket_t fd, error_t result);
+
+   // The peer's FIN arrived in order. Data already received can still be read.
+   event void remoteClosed(socket_t fd);
+
+   // SUCCESS once the close exchange finished, FAIL if the connection gave up. Don't use fd after this.
+   event void closeDone(socket_t fd, error_t result);
 }

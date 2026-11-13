@@ -13,7 +13,10 @@ class TestSim:
     CMD_PING = 0
     CMD_NEIGHBOR_DUMP = 1
     CMD_ROUTE_DUMP=3
+    CMD_TEST_CLIENT=4
+    CMD_TEST_SERVER=5
     CMD_PING_TTL=7
+    CMD_CLIENT_CLOSE=8
 
     # CHANNELS - see includes/channels.h
     COMMAND_CHANNEL="command";
@@ -29,6 +32,7 @@ class TestSim:
 
     # Project 3
     TRANSPORT_CHANNEL="transport";
+    TGEN_CHANNEL="Project3TGen";
 
     # Personal Debuggin Channels for some of the additional models implemented.
     HASHMAP_CHANNEL="hashmap";
@@ -151,6 +155,22 @@ class TestSim:
 
     def routeDMP(self, destination):
         self.sendCMD(self.CMD_ROUTE_DUMP, destination, "routing command");
+
+    # The command goes to the mote that runs the server.
+    def testServer(self, address, port):
+        self.sendCMD(self.CMD_TEST_SERVER, address, chr(port));
+
+    # The command goes to the client mote. transferBytes is sent as 2 bytes, big endian.
+    def testClient(self, clientAddress, serverAddress, srcPort, destPort, transferBytes):
+        self.sendCMD(self.CMD_TEST_CLIENT, clientAddress, "{0}{1}{2}{3}{4}".format(chr(serverAddress),chr(srcPort),chr(destPort),chr(transferBytes >> 8),chr(transferBytes & 0xFF)));
+
+    def clientClose(self, clientAddress, serverAddress, srcPort, destPort):
+        self.sendCMD(self.CMD_CLIENT_CLOSE, clientAddress, "{0}{1}{2}".format(chr(serverAddress),chr(srcPort),chr(destPort)));
+
+    # The handout's names.
+    cmdTestServer = testServer
+    cmdTestClient = testClient
+    cmdClientClose = clientClose
 
     def addChannel(self, channelName, out=sys.stdout):
         print 'Adding Channel', channelName;

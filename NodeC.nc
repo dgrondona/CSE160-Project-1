@@ -35,6 +35,9 @@ implementation {
     components IPC;
     Node.IP -> IPC;
 
+    components TransportTestC;
+    Node.TransportTest -> TransportTestC;
+
     components CommandHandlerC;
     Node.CommandHandler -> CommandHandlerC;
 }

@@ -16,6 +16,7 @@ char DV_CHANNEL[]="dv";
 
 // Project 3
 char TRANSPORT_CHANNEL[]="transport";
+char TGEN_CHANNEL[]="Project3TGen";
 
 // Personal Debuggin Channels for some of the additional models implemented.
 char HASHMAP_CHANNEL[]="hashmap";
