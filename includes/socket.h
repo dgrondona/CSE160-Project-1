@@ -62,6 +62,7 @@ typedef struct socket_store_t{
     uint16_t lastRead; // Next byte the app will read.
     uint16_t nextExpected;
     bool finRcvd;
+    bool notifyClosed; // FIN came before accept(), signal remoteClosed once the app has it.
 
     // One timer per record: retransmit, zero window probe, or TIME_WAIT linger depending on state.
     bool timerOn;

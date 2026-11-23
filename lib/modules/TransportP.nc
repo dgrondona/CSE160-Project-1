@@ -29,6 +29,7 @@ implementation{
     bool pumpPosted = FALSE;
 
     task void pumpTask();
+    task void notifyClosedTask();
 
     char* stateName(enum socket_state state){
         switch(state){
@@ -250,6 +251,18 @@ implementation{
             return;
         }
 
+        // The peer ACKed our FIN but never sent its own.
+        if (s->state == FIN_WAIT_2) {
+            socket_t fd = fdOf(s);
+            bool owned = s->appOwned;
+            dbg(TRANSPORT_CHANNEL, "conn %d:%d->%d:%d FIN_WAIT_2 timeout, no FIN from peer\n", CONN(s));
+            releaseSocket(s);
+            if (owned) {
+                signal Transport.closeDone(fd, FAIL);
+            }
+            return;
+        }
+
         if (outstanding(s) > 0) {
             s->retries++;
             dbg(TRANSPORT_CHANNEL, "conn %d:%d->%d:%d TIMEOUT state: %s, lastAck: %d, outstanding: %d, retry: %d\n", CONN(s), stateName(s->state), s->lastAck, outstanding(s), s->retries);
@@ -348,6 +361,17 @@ implementation{
         }
     }
 
+    // Posted so the app has the fd from accept() before it hears about the close.
+    task void notifyClosedTask(){
+        uint8_t i;
+        for (i = 0; i < MAX_NUM_OF_SOCKETS; i++) {
+            if (sockets[i].inUse && sockets[i].notifyClosed) {
+                sockets[i].notifyClosed = FALSE;
+                signal Transport.remoteClosed(i);
+            }
+        }
+    }
+
     event void tickTimer.fired(){
         uint8_t i;
         uint32_t now = call tickTimer.getNow();
@@ -432,9 +456,10 @@ implementation{
             s->timerOn = FALSE;
         }
 
-        if (s->finSent && ack == s->finSeq + 1) {
+        if (s->finSent && ack == (uint16_t)(s->finSeq + 1)) {
             if (s->state == FIN_WAIT_1) {
                 setState(s, FIN_WAIT_2);
+                startTimer(s, TIME_WAIT_PERIOD);
             } else if (s->state == CLOSING) {
                 enterTimeWait(s);
             } else if (s->state == LAST_ACK) {
@@ -468,6 +493,9 @@ implementation{
             }
             s->nextExpected += len;
             dbg(TRANSPORT_CHANNEL, "conn %d:%d->%d:%d DATA_RX seq: %d, len: %d, buffered: %d\n", CONN(s), seg->seq, len, rcvdBytes(s));
+            if (s->state == FIN_WAIT_2) {
+                startTimer(s, TIME_WAIT_PERIOD);
+            }
         }
     }
 
@@ -542,7 +570,7 @@ implementation{
         }
 
         if (s->state == SYN_RCVD) {
-            if (flags == TCP_SYN && seg->seq + 1 == s->nextExpected) {
+            if (flags == TCP_SYN && (uint16_t)(seg->seq + 1) == s->nextExpected) {
                 dbg(TRANSPORT_CHANNEL, "conn %d:%d->%d:%d SYN_RX duplicate, resending SYNACK\n", CONN(s));
                 sendSegment(s, TCP_SYN | TCP_ACK, s->lastAck, NULL, 0);
                 return;
@@ -658,6 +686,11 @@ implementation{
             if (s->inUse && s->parent == fd && !s->appOwned && s->state != SYN_RCVD && s->state != TIME_WAIT) {
                 s->appOwned = TRUE;
                 dbg(TRANSPORT_CHANNEL, "conn %d:%d->%d:%d ACCEPT fd: %d\n", CONN(s), i);
+                // Its FIN came before the app owned it, so remoteClosed was never signaled.
+                if (s->finRcvd) {
+                    s->notifyClosed = TRUE;
+                    post notifyClosedTask();
+                }
                 return i;
             }
         }
@@ -734,7 +767,7 @@ implementation{
         }
         s->lastRead += bufflen;
 
-        // The sender stalls when there's less room than a full segment, so tell it once there's room again.
+        // Under a full segment the sender only sends short segments or probes, so tell it once a full one fits.
         if (bufflen > 0 && oldWindow < TCP_MAX_DATA && rcvWindow(s) >= TCP_MAX_DATA && !s->finRcvd) {
             dbg(TRANSPORT_CHANNEL, "conn %d:%d->%d:%d WINDOW_UPDATE wnd: %d -> %d\n", CONN(s), oldWindow, rcvWindow(s));
             sendAck(s);
