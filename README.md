@@ -89,12 +89,15 @@ if __name__ == '__main__':
 
 # Project 3: Reliable Transport
 
-Design notes, the state table and the timer policy are in `Project3Notes.md`.
+Design notes, the state table and the timer policy are in `Project3Notes.md`. The one-page design and the
+discussion answers are in `Project3Report.pdf`.
 
 ## Build and run
 ```
 docker run --rm -v "$PWD":/home/cse160 -w /home/cse160 ucmercedandeslab/tinyos_debian bash -lc 'make micaz sim && python transportTest.py basic'
 ```
+Run any scenario with `python transportTest.py <scenario> [seed]`. The seed defaults to 160, and a scenario
+gives the same log every run with the same seed.
 
 ## Header sizes
 28 byte payload = 8 byte IP header + 8 byte transport header + **12 data bytes** per segment.
@@ -105,11 +108,12 @@ docker run --rm -v "$PWD":/home/cse160 -w /home/cse160 ucmercedandeslab/tinyos_d
 | `TCP_MAX_DATA` | 12 | `includes/tcp.h` |
 | `SOCKET_BUFFER_SIZE` | 128 send, 128 receive per record | `includes/socket.h` |
 | `MAX_NUM_OF_SOCKETS` | 10 | `includes/socket.h` |
-| `SEND_WINDOW` | 12 (stop-and-wait for now) | `TransportP.nc` |
+| `SEND_WINDOW` | 48 (4 segments) | `TransportP.nc` |
 | `RTO` | 3000 ms, fixed | `TransportP.nc` |
 | `MAX_RETRIES` | 6 | `TransportP.nc` |
 | `TIME_WAIT_PERIOD` | 21000 ms | `TransportP.nc` |
 | `TICK_PERIOD` | 250 ms | `TransportP.nc` |
+| `MAX_SESSIONS` / `MAX_LISTENERS` | 4 / 2 | `TransportTestP.nc` |
 
 Sequence numbers are 16 bits with wraparound-safe compares, so any transfer size up to 65535 bytes works.
 
@@ -119,11 +123,43 @@ Sequence numbers are 16 bits with wraparound-safe compares, so any transfer size
 | `testServer(serverAddress, listenPort)` | serverAddress | port |
 | `testClient(clientAddress, serverAddress, srcPort, destPort, transferBytes)` | clientAddress | server, srcPort, destPort, bytes (2, big endian) |
 | `clientClose(clientAddress, serverAddress, srcPort, destPort)` | clientAddress | server, srcPort, destPort |
+| `pauseServer(serverAddress, listenPort)` | serverAddress | port, 1 |
+| `resumeServer(serverAddress, listenPort)` | serverAddress | port, 0 |
+| `dropRule(address, kind, nth)` | a forwarding node | kind, nth |
 
 `cmdTestServer`, `cmdTestClient` and `cmdClientClose` are aliases with the handout's names.
+
+- Test byte k is `k % 256`. The server checks every byte it reads and prints `server result! total, mismatches`.
+  The client prints `client result! accepted, total`, and transport's `RELEASE` line prints how many bytes were acked.
+- Pausing applies to every connection the listener on that port accepted, and to ones it accepts later.
+- `dropRule` kinds (`DROP_*` in `tcp.h` and TestSim): 1 DATA, 2 ACK, 3 SYN, 4 SYNACK, 5 HANDSHAKE_ACK,
+  6 WINDOW_UPDATE, 7 FIN, 8 FINAL_ACK. The node drops the nth forwarded segment of that kind once and logs `TEST_DROP`.
+  It only runs on forwarded packets and is off unless a rule is set.
+- TestSim reuses one command message, so leave at least a second of sim time between commands.
 
 Channels: `transport` for engine events, `Project3TGen` for app progress (accepted, consumed, results).
 
 ## Tests
-- `transportTest.py basic`: `line.topo` (1-2-3-4), `no_noise.txt`. Server 4:20, client 1:10, 300 bytes, then close.
-  Observed: 25 segments, `server result! total: 300, mismatches: 0`, client `accepted: 300`, acked 300, both sides `close done! result: SUCCESS`, and the client releases after TIME_WAIT.
+All scenarios use `line.topo` (1-2-3-4) with the client on 1:10, the server on 4:20 and drop rules on node 2.
+Each one checks route tables and pings 1 to 4 before starting transport. `noisy` uses `meyer-heavy.txt`, everything
+else uses `no_noise.txt`. Results below are with seed 160.
+
+| Scenario | What it does | Observed |
+|---|---|---|
+| `basic` | 300 bytes, close | total 300, 0 mismatches, both sides close SUCCESS |
+| `baseline` | 1030 bytes, so the last segment is 10 bytes | total 1030, 0 mismatches, `outstanding` up to 48, closes SUCCESS |
+| `dataloss` | drop the 3rd DATA segment | 1 timeout, Go-Back-N resend from the gap, 0 mismatches |
+| `ackloss` | drop the 2nd ACK | the next cumulative ACK covers it, no retransmission, 0 mismatches |
+| `acklast` | drop the ACK of the last data segment | timeout, resend, node 4 drops the repeat (`expected`) and ACKs again, 0 mismatches |
+| `flow` | pause the server, resume, drop the first WINDOW_UPDATE | window goes to 0, sender probes with 1 byte, a probe's ACK reopens it, total 400, 0 mismatches |
+| `synloss` | drop the SYN | 1 `SYN_RETX`, one record on each side |
+| `synackloss` | drop the SYN-ACK | `SYNACK_RETX` and `SYN_RETX`, node 4 logs `SYN_RX duplicate`, one record |
+| `hsackloss` | drop the final handshake ACK | the first data segment carries the same ACK, so node 4 logs `ACK_RX handshake` and goes ESTABLISHED |
+| `finalackloss` | drop the final close ACK | node 4 logs `FIN_RETX`, node 1 in TIME_WAIT logs `FIN_RX duplicate` and ACKs again, both release |
+| `nolistener` | connect to 4:21 where nobody listens | 6 `SYN_RETX`, `FAILED in SYN_SENT`, released, `client connect failed` |
+| `unreachable` | 1030 bytes, cut link 2-3 after 15 s | 7 timeouts, `FAILED in ESTABLISHED`, `RELEASE acked: 144`, close done FAIL, `accepted: 272` (the other 128 were still in the send buffer) |
+| `noisy` | 1030 bytes over `meyer-heavy.txt` | 19 timeouts, 66 resent segments, total 1030, 0 mismatches |
+| `twoconn` | clients on 1:10 and 2:11 both to 4:20, 600 bytes each | node 4 runs two records from one listener, both total 600, 0 mismatches, all close SUCCESS |
+
+Even `no_noise.txt` loses a few packets to collisions, since nodes 1 and 3 both transmit into node 2. `basic` has 4
+timeouts with no drop rule, and every one recovers.
