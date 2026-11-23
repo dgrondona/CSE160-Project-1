@@ -17,6 +17,18 @@ class TestSim:
     CMD_TEST_SERVER=5
     CMD_PING_TTL=7
     CMD_CLIENT_CLOSE=8
+    CMD_SERVER_PAUSE=10
+    CMD_DROP_RULE=11
+
+    # Segment kinds for dropRule - see includes/tcp.h
+    DROP_DATA=1
+    DROP_ACK=2
+    DROP_SYN=3
+    DROP_SYNACK=4
+    DROP_HANDSHAKE_ACK=5
+    DROP_WINDOW_UPDATE=6
+    DROP_FIN=7
+    DROP_FINAL_ACK=8
 
     # CHANNELS - see includes/channels.h
     COMMAND_CHANNEL="command";
@@ -166,6 +178,17 @@ class TestSim:
 
     def clientClose(self, clientAddress, serverAddress, srcPort, destPort):
         self.sendCMD(self.CMD_CLIENT_CLOSE, clientAddress, "{0}{1}{2}".format(chr(serverAddress),chr(srcPort),chr(destPort)));
+
+    # Stops or restarts reading on every connection the listener on port accepted.
+    def pauseServer(self, address, port):
+        self.sendCMD(self.CMD_SERVER_PAUSE, address, "{0}{1}".format(chr(port),chr(1)));
+
+    def resumeServer(self, address, port):
+        self.sendCMD(self.CMD_SERVER_PAUSE, address, "{0}{1}".format(chr(port),chr(0)));
+
+    # Test only. The forwarding node drops the nth segment of that kind that passes through it, once.
+    def dropRule(self, address, kind, nth):
+        self.sendCMD(self.CMD_DROP_RULE, address, "{0}{1}".format(chr(kind),chr(nth)));
 
     # The handout's names.
     cmdTestServer = testServer

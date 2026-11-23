@@ -90,6 +90,18 @@ implementation{
                 signal CommandHandler.clientClose(buff[0], buff[1], buff[2]);
                 break;
 
+            // buff: listen port, then 1 to pause or 0 to resume.
+            case CMD_SERVER_PAUSE:
+                dbg(COMMAND_CHANNEL, "Command Type: Server Pause\n");
+                signal CommandHandler.serverPause(buff[0], buff[1]);
+                break;
+
+            // buff: segment kind (DROP_* in tcp.h), then which occurrence to drop.
+            case CMD_DROP_RULE:
+                dbg(COMMAND_CHANNEL, "Command Type: Drop Rule\n");
+                signal CommandHandler.setDropRule(buff[0], buff[1]);
+                break;
+
             default:
                 dbg(COMMAND_CHANNEL, "CMD_ERROR: \"%d\" does not match any known commands.\n", msg->id);
                 break;

@@ -14,6 +14,19 @@ enum{
     TCP_FIN = 0x4
 };
 
+// Segment kinds the test drop hook in IPP can match. A pure ACK is split by where it falls in the connection.
+enum{
+    DROP_NONE = 0,
+    DROP_DATA = 1,
+    DROP_ACK = 2,
+    DROP_SYN = 3,
+    DROP_SYNACK = 4,
+    DROP_HANDSHAKE_ACK = 5,
+    DROP_WINDOW_UPDATE = 6,
+    DROP_FIN = 7,
+    DROP_FINAL_ACK = 8
+};
+
 // Sits in the IP payload. Addresses come from the IP header, so only ports are here.
 // flagsLen packs the flags into the high 4 bits and the data length (0 to 12) into the low 4.
 typedef nx_struct tcpSegment{

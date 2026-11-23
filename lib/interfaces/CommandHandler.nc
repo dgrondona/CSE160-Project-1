@@ -9,6 +9,8 @@ interface CommandHandler{
    event void setTestServer(uint8_t port);
    event void setTestClient(uint16_t dest, uint8_t srcPort, uint8_t destPort, uint16_t transferBytes);
    event void clientClose(uint16_t dest, uint8_t srcPort, uint8_t destPort);
+   event void serverPause(uint8_t port, bool paused);
+   event void setDropRule(uint8_t kind, uint8_t nth);
    event void setAppServer();
    event void setAppClient();
 }

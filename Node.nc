@@ -99,6 +99,14 @@ implementation{
       call TransportTest.closeClient(dest, srcPort, destPort);
    }
 
+   event void CommandHandler.serverPause(uint8_t port, bool paused){
+      call TransportTest.pauseServer(port, paused);
+   }
+
+   event void CommandHandler.setDropRule(uint8_t kind, uint8_t nth){
+      call IP.setDropRule(kind, nth);
+   }
+
    event void CommandHandler.setAppServer(){}
 
    event void CommandHandler.setAppClient(){}

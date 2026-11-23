@@ -22,6 +22,7 @@ implementation{
         bool inUse;
         bool isServer;
         socket_t fd;
+        uint8_t listener;
         uint16_t dest;
         uint8_t srcPort;
         uint8_t destPort;
@@ -41,6 +42,8 @@ implementation{
 
     session sessions[MAX_SESSIONS];
     socket_t listeners[MAX_LISTENERS];
+    uint8_t listenerPorts[MAX_LISTENERS];
+    bool listenerPaused[MAX_LISTENERS];
     uint8_t listenerCount = 0;
 
     session* findByFd(socket_t fd) {
@@ -90,6 +93,8 @@ implementation{
         }
 
         listeners[listenerCount] = fd;
+        listenerPorts[listenerCount] = port;
+        listenerPaused[listenerCount] = FALSE;
         listenerCount++;
         dbg(TGEN_CHANNEL, "server listening! port: %d, fd: %d\n", port, fd);
         startTimer();
@@ -144,6 +149,19 @@ implementation{
         dbg(TGEN_CHANNEL, "client close failed! no such client. conn: %d:%d->%d:%d\n", TOS_NODE_ID, srcPort, dest, destPort);
     }
 
+    // Applies to every connection this listener accepted, and to ones it accepts later.
+    command void TransportTest.pauseServer(uint8_t port, bool paused){
+        uint8_t i;
+        for (i = 0; i < listenerCount; i++) {
+            if (listenerPorts[i] == port) {
+                listenerPaused[i] = paused;
+                dbg(TGEN_CHANNEL, "server %s! port: %d\n", paused ? "paused" : "resumed", port);
+                return;
+            }
+        }
+        dbg(TGEN_CHANNEL, "server pause failed! no listener on port: %d\n", port);
+    }
+
     // Byte k of the stream is k % 256, so the server can check what it reads without any shared state.
     void produce(session* s) {
         uint8_t buf[PRODUCE_CHUNK];
@@ -171,9 +189,14 @@ implementation{
     void consume(session* s) {
         uint8_t buf[CONSUME_CHUNK];
         char line[128];
-        uint16_t n = call Transport.read(s->fd, buf, CONSUME_CHUNK);
+        uint16_t n;
         uint16_t i;
         uint8_t used = 0;
+
+        if (listenerPaused[s->listener]) {
+            return;
+        }
+        n = call Transport.read(s->fd, buf, CONSUME_CHUNK);
 
         for (i = 0; i < n; i++) {
             if (buf[i] != (s->consumed + i) % 256) {
@@ -214,6 +237,7 @@ implementation{
                 } else {
                     s->isServer = TRUE;
                     s->fd = newFd;
+                    s->listener = i;
                     dbg(TGEN_CHANNEL, "server accepted! fd: %d\n", newFd);
                 }
                 newFd = call Transport.accept(listeners[i]);
