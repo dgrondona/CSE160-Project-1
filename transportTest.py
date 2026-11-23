@@ -80,7 +80,7 @@ def startClient(s, transferBytes):
     s.testClient(CLIENT, SERVER, CLIENT_PORT, SERVER_PORT, transferBytes);
 
 # Expected: client closes once everything is accepted. Server result is total: bytes, mismatches: 0.
-# Both sides log close done, the client after its TIME_WAIT linger (~21 s).
+# Both sides log close done. The client's comes when it enters TIME_WAIT, and it releases ~21 s later.
 def closeClient(s):
     s.mark("close client");
     s.clientClose(CLIENT, SERVER, CLIENT_PORT, SERVER_PORT);
@@ -121,7 +121,7 @@ def acklast(s):
     transfer(s, 300, 150);
 
 # Expected: with the server paused, the buffer fills to 128, wnd goes to 0, and node 1 logs ZERO_WINDOW
-# and WINDOW_PROBE instead of sending data. After resume the WINDOW_UPDATE is dropped, and a probe's ACK
+# and WINDOW_PROBE instead of sending data. Later probes log as TIMEOUT and DATA_RETX with len: 1. After resume the WINDOW_UPDATE is dropped, and a probe's ACK
 # reopens the window. The transfer finishes with no mismatches and nothing dropped for lack of room after resume.
 def flow(s):
     startServer(s);
@@ -202,6 +202,36 @@ def twoconn(s):
     s.clientClose(2, SERVER, 11, SERVER_PORT);
     s.runSeconds(80);
 
+# Starts the client at the time that makes its ISN 65049, so with 485 bytes the FIN's sequence number is 65535.
+# Expected: node 1's ACK_RX ack: 0 moves it to FIN_WAIT_2, and both sides close SUCCESS.
+def finwrap(s):
+    startServer(s);
+    s.runSeconds(185);
+    startClient(s, 485);
+    s.runSeconds(1);
+    closeClient(s);
+    s.runSeconds(60);
+
+# Nothing to send and the handshake ACK is dropped, so the client's FIN is what moves node 4 to ESTABLISHED,
+# and node 4 is already in CLOSE_WAIT before the app accepts. Expected: "server saw remote close!" right
+# after "server accepted!", then server result total: 0 and both sides close SUCCESS.
+def finearly(s):
+    setDrop(s, s.DROP_HANDSHAKE_ACK, 1);
+    startServer(s);
+    startClient(s, 0);
+    s.runSeconds(1);
+    closeClient(s);
+
+# The paused server never reads the end of the stream, so it never closes. Expected: node 1 sits in
+# FIN_WAIT_2, then logs "FIN_WAIT_2 timeout" ~21 s later, releases, and logs close done FAIL.
+def finwait2(s):
+    startServer(s);
+    s.pauseServer(SERVER, SERVER_PORT);
+    s.runSeconds(1);
+    startClient(s, 100);
+    s.runSeconds(30);
+    closeClient(s);
+
 SCENARIOS = {
     "basic": basic,
     "baseline": baseline,
@@ -216,7 +246,10 @@ SCENARIOS = {
     "nolistener": nolistener,
     "unreachable": unreachable,
     "noisy": noisy,
-    "twoconn": twoconn
+    "twoconn": twoconn,
+    "finwrap": finwrap,
+    "finearly": finearly,
+    "finwait2": finwait2
 }
 
 if __name__ == '__main__':
