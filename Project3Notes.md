@@ -131,3 +131,17 @@ Course simplifications: no RST, no simultaneous open, no piggybacked or delayed 
 
 - Even with `no_noise.txt` there are natural losses: on the line, nodes 1 and 3 both transmit into node 2, so data and ACKs collide there. `basic` has 4 timeouts with no drop rule and recovers each time.
 - With the window open, `outstanding` sits at 48 for most of a transfer.
+
+---
+
+## Demo cheat sheet
+
+Run a scenario into a log, then trace it with grep.
+```
+python transportTest.py <scenario> > run.log
+grep STATE run.log                                   # every state transition, both sides
+grep -E "TEST_DROP|TIMEOUT|RETX|dropped" run.log     # a loss and its recovery (dataloss, acklast)
+grep -E "buffered|wnd" run.log                       # receive buffer occupancy and the window (flow)
+grep -E "ZERO_WINDOW|WINDOW_PROBE|WINDOW_UPDATE|TEST_DROP" run.log   # zero window recovery (flow)
+grep "(4)" run.log                                   # one node's view only
+```
