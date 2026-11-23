@@ -43,7 +43,7 @@ def main():
     if scenario == "basic":
         basic(s);
     else:
-        print 'Unknown scenario:', scenario;
+        print ('Unknown scenario:', scenario);
 
 # One client on node 1 sends 300 bytes to a server on node 4, then closes.
 def basic(s):

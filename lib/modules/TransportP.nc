@@ -14,7 +14,8 @@ module TransportP{
 
 implementation{
     enum{
-        SEND_WINDOW = TCP_MAX_DATA, // One segment in flight is stop-and-wait. Raise it to get a sliding window.
+        // 4 segments in flight. Small enough that a Go-Back-N burst fits SimpleSend's queue next to DV traffic.
+        SEND_WINDOW = 4 * TCP_MAX_DATA,
         TICK_PERIOD = 250,
         // 3 hops each way with up to 300 ms of SimpleSend delay per hop keeps the RTT under about 2 s.
         RTO = 3000,
