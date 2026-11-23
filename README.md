@@ -89,8 +89,7 @@ if __name__ == '__main__':
 
 # Project 3: Reliable Transport
 
-Design notes, the state table and the timer policy are in `Project3Notes.md`. The one-page design and the
-discussion answers are in `Project3Report.pdf`.
+Design notes, the state table and the timer policy are in `Project3Notes.md`.
 
 ## Build and run
 ```
@@ -151,15 +150,18 @@ else uses `no_noise.txt`. Results below are with seed 160.
 | `dataloss` | drop the 3rd DATA segment | 1 timeout, Go-Back-N resend from the gap, 0 mismatches |
 | `ackloss` | drop the 2nd ACK | the next cumulative ACK covers it, no retransmission, 0 mismatches |
 | `acklast` | drop the ACK of the last data segment | timeout, resend, node 4 drops the repeat (`expected`) and ACKs again, 0 mismatches |
-| `flow` | pause the server, resume, drop the first WINDOW_UPDATE | window goes to 0, sender probes with 1 byte, a probe's ACK reopens it, total 400, 0 mismatches |
+| `flow` | pause the server, resume, drop the first WINDOW_UPDATE | window goes to 0, sender probes with 1 byte (the first logs `WINDOW_PROBE`, later ones `TIMEOUT`/`DATA_RETX len: 1`), a probe's ACK reopens it, total 400, 0 mismatches |
 | `synloss` | drop the SYN | 1 `SYN_RETX`, one record on each side |
 | `synackloss` | drop the SYN-ACK | `SYNACK_RETX` and `SYN_RETX`, node 4 logs `SYN_RX duplicate`, one record |
 | `hsackloss` | drop the final handshake ACK | the first data segment carries the same ACK, so node 4 logs `ACK_RX handshake` and goes ESTABLISHED |
 | `finalackloss` | drop the final close ACK | node 4 logs `FIN_RETX`, node 1 in TIME_WAIT logs `FIN_RX duplicate` and ACKs again, both release |
 | `nolistener` | connect to 4:21 where nobody listens | 6 `SYN_RETX`, `FAILED in SYN_SENT`, released, `client connect failed` |
-| `unreachable` | 1030 bytes, cut link 2-3 after 15 s | 7 timeouts, `FAILED in ESTABLISHED`, `RELEASE acked: 144`, close done FAIL, `accepted: 272` (the other 128 were still in the send buffer) |
+| `unreachable` | 1030 bytes, cut link 2-3 after 15 s | 7 timeouts after the cut, `FAILED in ESTABLISHED`, `RELEASE acked: 144`, close done FAIL, `accepted: 272` (the other 128 were still in the send buffer) |
 | `noisy` | 1030 bytes over `meyer-heavy.txt` | 19 timeouts, 66 resent segments, total 1030, 0 mismatches |
 | `twoconn` | clients on 1:10 and 2:11 both to 4:20, 600 bytes each | node 4 runs two records from one listener, both total 600, 0 mismatches, all close SUCCESS |
+| `finwrap` | 485 bytes timed so the client's FIN has seq 65535 | `ACK_RX ack: 0` moves it to FIN_WAIT_2, total 485, both close SUCCESS |
+| `finearly` | 0 bytes, close right away, drop the handshake ACK | the FIN establishes node 4 before the app accepts, `server saw remote close!` right after accept, both close SUCCESS |
+| `finwait2` | paused server never closes its side | node 1 logs `FIN_WAIT_2 timeout` 21 s after its FIN is ACKed, releases, close done FAIL |
 
 Even `no_noise.txt` loses a few packets to collisions, since nodes 1 and 3 both transmit into node 2. `basic` has 4
 timeouts with no drop rule, and every one recovers.

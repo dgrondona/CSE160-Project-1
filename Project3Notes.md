@@ -38,6 +38,7 @@ Design decisions for reliable transport. Build, commands and test results are in
 - **Why:** 128 divides 65536, so the index stays right across wraparound, and `seqLT`/`seqLEQ` compare by signed distance. No transfer size limit below 65535.
 - Lookups match local port, remote address and remote port. The local address is always this node, so that's the full tuple. Listeners only take new SYNs, so a listener never matches an existing connection.
 - Each accepted connection gets its own record with `parent` set to the listener. The listener stays in LISTEN.
+- If a connection's FIN arrives before the app accepts it, `accept()` posts a task that signals `remoteClosed`, so the app still learns about it.
 - `bind` refuses a port that any record still holds, TIME_WAIT included, so a tuple can't be reused while old segments might still be around.
 
 ### Sequence numbers
@@ -63,6 +64,7 @@ Design decisions for reliable transport. Build, commands and test results are in
 | FIN_WAIT_1 | ACK of FIN | | FIN_WAIT_2 |
 | FIN_WAIT_1 | FIN | ACK | CLOSING |
 | FIN_WAIT_2 | FIN | ACK, signal `closeDone(SUCCESS)` | TIME_WAIT |
+| FIN_WAIT_2 | no FIN for 21 s (data restarts it) | release, signal `closeDone(FAIL)` | CLOSED |
 | CLOSING | ACK of FIN | signal `closeDone(SUCCESS)` | TIME_WAIT |
 | CLOSE_WAIT | `close()` | FIN after every byte is acked | LAST_ACK |
 | LAST_ACK | ACK of FIN | release, signal `closeDone(SUCCESS)` | CLOSED |
@@ -104,7 +106,7 @@ Course simplifications: no RST, no simultaneous open, no piggybacked or delayed 
 
 - Window = 128 minus bytes received but not read yet.
 - `write()` only takes what fits in 128 minus unacked and queued bytes. The app keeps its own offset and offers the rest later.
-- **Zero window:** with nothing outstanding and a 0 window, the sender sends a 1 byte probe every RTO. The receiver drops it if there's still no room and ACKs it with the current window, so a lost window update is covered. A probe's ACK resets the retry count, so a paused receiver never counts as a dead one.
+- **Zero window:** with nothing outstanding and a 0 window, the sender sends a 1 byte probe every RTO. The first logs `WINDOW_PROBE`. After that the probe byte is outstanding, so resends go through the normal timeout and log `TIMEOUT` and `DATA_RETX len: 1`. The receiver drops it if there's still no room and ACKs it with the current window, so a lost window update is covered. A probe's ACK resets the retry count, so a paused receiver never counts as a dead one.
 - **Window update:** when a `read()` takes the window from under 12 to 12 or more, the receiver sends an ACK on its own.
 - The test consumer reads 24 bytes per 250 ms tick, separately from packet arrival. Pausing it just skips the read.
 
@@ -142,6 +144,6 @@ python transportTest.py <scenario> > run.log
 grep STATE run.log                                   # every state transition, both sides
 grep -E "TEST_DROP|TIMEOUT|RETX|dropped" run.log     # a loss and its recovery (dataloss, acklast)
 grep -E "buffered|wnd" run.log                       # receive buffer occupancy and the window (flow)
-grep -E "ZERO_WINDOW|WINDOW_PROBE|WINDOW_UPDATE|TEST_DROP" run.log   # zero window recovery (flow)
+grep -E "ZERO_WINDOW|WINDOW_PROBE|WINDOW_UPDATE|TEST_DROP|len: 1," run.log   # zero window recovery (flow)
 grep "(4)" run.log                                   # one node's view only
 ```
